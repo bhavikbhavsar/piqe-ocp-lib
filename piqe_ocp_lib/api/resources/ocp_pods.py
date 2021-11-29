@@ -7,6 +7,7 @@ from kubernetes.stream import stream
 from piqe_ocp_lib import __loggername__
 from piqe_ocp_lib.api.resources import OcpBase
 
+
 logger = logging.getLogger(__loggername__)
 
 
@@ -16,14 +17,12 @@ class OcpPods(OcpBase):
     related to managing Openshift pods.
     :return: None
     """
-
     def __init__(self, kube_config_file=None):
-        self.kube_config_file = kube_config_file
-        OcpBase.__init__(self, kube_config_file=self.kube_config_file)
-        self.core_v1 = client.CoreV1Api(api_client=self.k8s_client)
+        super().__init__(kube_config_file=kube_config_file)
         self.api_version = "v1"
         self.kind = "Pod"
         self.ocp_pods = self.dyn_client.resources.get(api_version=self.api_version, kind=self.kind)
+
 
     def create_a_pod_from_definition(self, namespace, body):
         """
@@ -183,3 +182,27 @@ class OcpPods(OcpBase):
             if api_response.spec["nodeName"]:
                 node_name = api_response.spec["nodeName"]
         return node_name
+    
+    def get_vm_pods_all_nodes(self):
+        """
+        Method that returns a list of All virtual_machine Pods belonging to
+        a Deployment Config in all namespaces
+        :return: dict of nodes containing list of virtual_machine
+
+        """
+        nodes_dict = {}
+        label_selector="kubevirt.io"
+        namespace="default"
+        api_response = self.ocp_pods.get(namespace=namespace, label_selector=label_selector)
+        if api_response:
+            for item in api_response.items:
+                pod_name = (item["metadata"]["name"])
+                node_name = (item["spec"]["nodeName"])
+                vm_name = (item["spec"]["hostname"])
+                node_info_dict = {"vm_name":vm_name, "pod_name": pod_name}
+                if node_name in nodes_dict.keys():
+                    nodes_dict[node_name].append(node_info_dict)
+                else:
+                    nodes_dict[node_name] = [node_info_dict]
+        return nodes_dict
+
